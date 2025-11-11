@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeff Buckley Network Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            font-size: 28px;
+            font-weight: bold;
+            color: #e94560;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            position: absolute;
+            top: 55px;
+            left: 20px;
+            z-index: 100;
+            font-size: 14px;
+            color: #a0a0a0;
+        }
+
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node:hover {
+            stroke-width: 3px;
+        }
+
+        .node-text {
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .link {
+            stroke-opacity: 0.6;
+            transition: all 0.3s ease;
+        }
+
+        .link:hover {
+            stroke-opacity: 1;
+            stroke-width: 3px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            max-width: 200px;
+            border: 1px solid #e94560;
+        }
+
+        .legend {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            color: #a0a0a0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">Jeff Buckley Network</div>
+        <div class="subtitle">Musical Connections & Influences (Updated with Robert Plant integration)</div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e94560;"></div>
+                <span>Jeff Buckley (Center)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f39c12;"></div>
+                <span>Family</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #3498db;"></div>
+                <span>Band Members</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #2ecc71;"></div>
+                <span>Influences</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #9b59b6;"></div>
+                <span>Contemporaries</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e67e22;"></div>
+                <span>Collaborators</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #1abc9c;"></div>
+                <span>Covers/Tributes</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            Drag to pan • Scroll to zoom • Hover for details
+        </div>
+
+        <svg id="graph"></svg>
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <script>
+        try {
+            const nodes = [
+                // Jeff Buckley (center)
+                { id: "Jeff Buckley", group: "center", size: 25, description: "Singer-songwriter known for 'Grace' album and ethereal voice" },
+                
+                // Leonard Cohen (elevated importance)
+                { id: "Leonard Cohen", group: "influence", size: 22, description: "Major influence - Jeff covered 'Hallelujah', Tim Buckley also admired Cohen" },
+                
+                // Family
+                { id: "Tim Buckley", group: "family", size: 20, description: "Father, influential folk-rock singer, admired Leonard Cohen" },
+                { id: "Mary Guibert", group: "family", size: 15, description: "Mother, musician and author" },
+                
+                // Band Members
+                { id: "Mick Grondahl", group: "band", size: 18, description: "Bassist in Jeff's band, played on Grace album" },
+                { id: "Matt Johnson", group: "band", size: 18, description: "Drummer in Jeff's band, played on Grace album" },
+                { id: "Michael Tighe", group: "band", size: 16, description: "Guitarist who played with Jeff in later years" },
+                
+                // Major Influences
+                { id: "Led Zeppelin", group: "influence", size: 20, description: "Major rock influence, deeply rooted in blues like Robert Johnson" },
+                { id: "Nina Simone", group: "influence", size: 18, description: "Jazz/soul influence, covered Leonard Cohen's 'Suzanne'" },
+                { id: "Robert Johnson", group: "influence", size: 18, description: "Blues legend, influenced Led Zeppelin and Jeff's guitar style" },
+                { id: "Van Morrison", group: "influence", size: 16, description: "Vocal and spiritual influence" },
+                { id: "Billie Holiday", group: "influence", size: 16, description: "Vocal phrasing influence" },
+                { id: "The Smiths", group: "influence", size: 16, description: "Alternative rock influence" },
+                { id: "Édith Piaf", group: "influence", size: 15, description: "Emotional intensity influence" },
+                
+                // Contemporaries
+                { id: "Radiohead", group: "contemporary", size: 18, description: "Contemporary band, Thom Yorke collaborated with PJ Harvey" },
+                { id: "Soundgarden", group: "contemporary", size: 17, description: "Chris Cornell was a friend and contemporary" },
+                { id: "PJ Harvey", group: "contemporary", size: 16, description: "Alternative rock contemporary, covered Leonard Cohen" },
+                { id: "Björk", group: "contemporary", size: 16, description: "Experimental music contemporary" },
+                { id: "Smashing Pumpkins", group: "contemporary", size: 15, description: "90s alternative rock scene" },
+                
+                // Key Cohen Connection Points
+                { id: "John Cale", group: "collaborator", size: 17, description: "Velvet Underground, created the 'Hallelujah' version Jeff learned from" },
+                { id: "Judy Collins", group: "tribute", size: 15, description: "First to record Leonard Cohen's songs like 'Suzanne'" },
+                
+                // Collaborators
+                { id: "Andy Wallace", group: "collaborator", size: 16, description: "Producer of Grace album" },
+                { id: "Steve Berkowitz", group: "collaborator", size: 14, description: "A&R executive who signed Jeff" },
+                { id: "Tom Verlaine", group: "collaborator", size: 16, description: "Television guitarist, worked with Jeff on demos" },
+                
+                // Cover Artists & Tributes
+                { id: "Chris Cornell", group: "tribute", size: 17, description: "Covered Jeff's songs, fellow grunge era vocalist" },
+                { id: "John Mayer", group: "tribute", size: 15, description: "Covered Jeff's songs, influenced by his style" },
+                { id: "Gary Lucas", group: "tribute", size: 15, description: "Guitarist who worked with both Tim and Jeff Buckley" },
+                { id: "Elizabeth Fraser", group: "tribute", size: 14, description: "Cocteau Twins singer, Jeff's romantic partner" },
+                
+                // Venues & Scene
+                { id: "Sin-é", group: "collaborator", size: 16, description: "NYC venue where Jeff performed regularly" },
+                { id: "Columbia Records", group: "collaborator", size: 14, description: "Jeff's record label, also Leonard Cohen's label" },
+                
+                // Other Notable Connections
+                { id: "Nusrat Fateh Ali Khan", group: "influence", size: 15, description: "Qawwali singer who influenced Jeff's vocals" },
+                { id: "Bad Brains", group: "influence", size: 14, description: "Punk influence on Jeff's music" },
+                { id: "Mahavishnu Orchestra", group: "influence", size: 14, description: "Jazz fusion influence" }
+            ];
+
+            const links = [
+                // Family connections
+                { source: "Jeff Buckley", target: "Tim Buckley", relationship: "Father-son", strength: 5 },
+                { source: "Jeff Buckley", target: "Mary Guibert", relationship: "Mother-son", strength: 5 },
+                
+                // Band members
+                { source: "Jeff Buckley", target: "Mick Grondahl", relationship: "Bandmate", strength: 4 },
+                { source: "Jeff Buckley", target: "Matt Johnson", relationship: "Bandmate", strength: 4 },
+                { source: "Jeff Buckley", target: "Michael Tighe", relationship: "Bandmate", strength: 3 },
+                
+                // Major influences
+                { source: "Jeff Buckley", target: "Leonard Cohen", relationship: "Covered 'Hallelujah'", strength: 5 },
+                { source: "Jeff Buckley", target: "Nina Simone", relationship: "Covered 'Lilac Wine'", strength: 4 },
+                { source: "Jeff Buckley", target: "Led Zeppelin", relationship: "Major influence, covers", strength: 4 },
+                { source: "Jeff Buckley", target: "Robert Johnson", relationship: "Blues influence", strength: 3 },
+                { source: "Jeff Buckley", target: "Van Morrison", relationship: "Vocal influence", strength: 3 },
+                { source: "Jeff Buckley", target: "Billie Holiday", relationship: "Vocal phrasing", strength: 3 },
+                { source: "Jeff Buckley", target: "The Smiths", relationship: "Alternative influence", strength: 3 },
+                { source: "Jeff Buckley", target: "Édith Piaf", relationship: "Emotional intensity", strength: 2 },
+                { source: "Jeff Buckley", target: "Nusrat Fateh Ali Khan", relationship: "Vocal technique", strength: 3 },
+                { source: "Jeff Buckley", target: "Bad Brains", relationship: "Punk influence", strength: 2 },
+                { source: "Jeff Buckley", target: "Mahavishnu Orchestra", relationship: "Jazz fusion", strength: 2 },
+                
+                // Leonard Cohen network connections
+                { source: "Tim Buckley", target: "Leonard Cohen", relationship: "Contemporary, admirer", strength: 3 },
+                { source: "Nina Simone", target: "Leonard Cohen", relationship: "Covered 'Suzanne'", strength: 4 },
+                { source: "PJ Harvey", target: "Leonard Cohen", relationship: "Covered 'Who by Fire'", strength: 3 },
+                { source: "Led Zeppelin", target: "Robert Johnson", relationship: "Major blues influence", strength: 4 },
+                { source: "John Cale", target: "Leonard Cohen", relationship: "Created definitive 'Hallelujah' version", strength: 5 },
+                { source: "Jeff Buckley", target: "John Cale", relationship: "Learned 'Hallelujah' from Cale's version", strength: 4 },
+                { source: "Judy Collins", target: "Leonard Cohen", relationship: "First to record many Cohen songs", strength: 4 },
+                { source: "Leonard Cohen", target: "Columbia Records", relationship: "Record label", strength: 4 },
+                
+                // Contemporaries
+                { source: "Jeff Buckley", target: "Radiohead", relationship: "Mutual admiration", strength: 3 },
+                { source: "Jeff Buckley", target: "Soundgarden", relationship: "Scene connections", strength: 3 },
+                { source: "Jeff Buckley", target: "PJ Harvey", relationship: "Contemporary", strength: 2 },
+                { source: "Jeff Buckley", target: "Björk", relationship: "Experimental peer", strength: 2 },
+                { source: "Jeff Buckley", target: "Smashing Pumpkins", relationship: "90s scene", strength: 2 },
+                { source: "PJ Harvey", target: "Radiohead", relationship: "Thom Yorke collaboration", strength: 3 },
+                
+                // Collaborators
+                { source: "Jeff Buckley", target: "Andy Wallace", relationship: "Producer", strength: 4 },
+                { source: "Jeff Buckley", target: "Steve Berkowitz", relationship: "A&R rep", strength: 3 },
+                { source: "Jeff Buckley", target: "Tom Verlaine", relationship: "Session work", strength: 3 },
+                { source: "Jeff Buckley", target: "Sin-é", relationship: "Regular venue", strength: 4 },
+                { source: "Jeff Buckley", target: "Columbia Records", relationship: "Record label", strength: 4 },
+                
+                // Personal connections
+                { source: "Jeff Buckley", target: "Elizabeth Fraser", relationship: "Romantic partner", strength: 4 },
+                { source: "Jeff Buckley", target: "Gary Lucas", relationship: "Collaborator", strength: 3 },
+                
+                // Tribute/cover connections
+                { source: "Jeff Buckley", target: "Chris Cornell", relationship: "Mutual influence", strength: 3 },
+                { source: "Jeff Buckley", target: "John Mayer", relationship: "Influenced", strength: 2 },
+                
+                // Cross connections
+                { source: "Tim Buckley", target: "Gary Lucas", relationship: "Collaborator", strength: 3 },
+                { source: "Chris Cornell", target: "Soundgarden", relationship: "Band member", strength: 5 },
+                { source: "Elizabeth Fraser", target: "Björk", relationship: "Contemporary", strength: 2 }
+            ];
+
+            const colorMap = {
+                center: "#e94560",
+                family: "#f39c12",
+                band: "#3498db",
+                influence: "#2ecc71",
+                contemporary: "#9b59b6",
+                collaborator: "#e67e22",
+                tribute: "#1abc9c"
+            };
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const svg = d3.select("#graph")
+                .attr("width", width)
+                .attr("height", height);
+
+            const tooltip = d3.select("#tooltip");
+
+            // Create zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 3])
+                .on("zoom", function(event) {
+                    container.attr("transform", event.transform);
+                });
+
+            svg.call(zoom);
+
+            const container = svg.append("g");
+
+            const simulation = d3.forceSimulation(nodes)
+                .force("link", d3.forceLink(links).id(d => d.id).distance(d => 150 - d.strength * 20))
+                .force("charge", d3.forceManyBody().strength(-800))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("collision", d3.forceCollide().radius(d => d.size + 5));
+
+            // Create links
+            const link = container.append("g")
+                .selectAll("line")
+                .data(links)
+                .enter()
+                .append("line")
+                .attr("class", "link")
+                .attr("stroke", "#555")
+                .attr("stroke-width", d => d.strength)
+                .on("mouseover", function(event, d) {
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.relationship}</strong><br>${d.source.id} ↔ ${d.target.id}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("opacity", 0);
+                });
+
+            // Create nodes
+            const node = container.append("g")
+                .selectAll("g")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("class", "node")
+                .call(d3.drag()
+                    .on("start", function(event, d) {
+                        if (!event.active) simulation.alphaTarget(0.3).restart();
+                        d.fx = d.x;
+                        d.fy = d.y;
+                    })
+                    .on("drag", function(event, d) {
+                        d.fx = event.x;
+                        d.fy = event.y;
+                    })
+                    .on("end", function(event, d) {
+                        if (!event.active) simulation.alphaTarget(0);
+                        d.fx = null;
+                        d.fy = null;
+                    }));
+
+            node.append("circle")
+                .attr("r", d => d.size)
+                .attr("fill", d => colorMap[d.group])
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 2);
+
+            node.append("text")
+                .attr("class", "node-text")
+                .attr("dy", d => d.size + 15)
+                .text(d => d.id)
+                .style("font-size", d => Math.max(8, d.size * 0.5) + "px");
+
+            node.on("mouseover", function(event, d) {
+                    d3.select(this).select("circle")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 4);
+                    
+                    tooltip.style("opacity", 1)
+                        .html(`<strong>${d.id}</strong><br>${d.description}`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this).select("circle")
+                        .attr("stroke", "#fff")
+                        .attr("stroke-width", 2);
+                    
+                    tooltip.style("opacity", 0);
+                });
+
+            simulation.on("tick", function() {
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+
+                node
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+
+            // Initial zoom to fit
+            setTimeout(() => {
+                try {
+                    const bounds = container.node().getBBox();
+                    const fullWidth = width;
+                    const fullHeight = height;
+                    const widthScale = fullWidth / bounds.width;
+                    const heightScale = fullHeight / bounds.height;
+                    const scale = 0.75 * Math.min(widthScale, heightScale);
+                    const translate = [fullWidth / 2 - scale * (bounds.x + bounds.width / 2), 
+                                     fullHeight / 2 - scale * (bounds.y + bounds.height / 2)];
+                    
+                    svg.transition().duration(750)
+                        .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+                } catch (e) {
+                    console.log("Auto-zoom failed, using default view");
+                }
+            }, 1000);
+
+        } catch (error) {
+            console.error("Graph initialization error:", error);
+            document.querySelector('.container').innerHTML = `
+                <div style="color: white; padding: 50px; text-align: center;">
+                    <h2>Loading Network Graph...</h2>
+                    <p>If this persists, please refresh the page.</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

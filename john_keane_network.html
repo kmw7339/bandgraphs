@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>John Keane Network Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .title {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            font-size: 28px;
+            font-weight: bold;
+            color: #f39c12;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .subtitle {
+            position: absolute;
+            top: 55px;
+            left: 20px;
+            z-index: 100;
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+
+        .legend {
+            position: absolute;
+            top: 90px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .node:hover {
+            stroke-width: 4px;
+        }
+
+        .node-text {
+            font-size: 11px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: white;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+        }
+
+        .link {
+            stroke-opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        .link:hover {
+            stroke-opacity: 1;
+            stroke-width: 3px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 2px solid #f39c12;
+            max-width: 300px;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">John Keane Network</div>
+        <div class="subtitle">Athens, Georgia Music Producer & Studio Owner (1981-Present)</div>
+        
+        <div class="legend">
+            <div style="font-weight: bold; margin-bottom: 10px;">Connection Types:</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12;"></div>
+                <div>John Keane (Nexus)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c;"></div>
+                <div>Core Artists (Extensive work)</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #3498db;"></div>
+                <div>Athens Scene</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2ecc71;"></div>
+                <div>Peter Buck Collaborations</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9b59b6;"></div>
+                <div>Alt-Country/Americana</div>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1abc9c;"></div>
+                <div>Folk/Singer-Songwriter</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div>🖱️ Drag nodes | 🔍 Scroll to zoom | ⚡ Hover for details</div>
+        </div>
+
+        <div class="tooltip" id="tooltip"></div>
+        <svg id="graph"></svg>
+    </div>
+
+    <script>
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const svg = d3.select("#graph")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select("#tooltip");
+
+        // Define the network data
+        const nodes = [
+            // Nexus
+            { id: "John Keane", group: "nexus", size: 25, description: "Producer/Engineer, John Keane Studios, Athens GA" },
+            
+            // Core artists (extensive work)
+            { id: "R.E.M.", group: "core", size: 20, description: "Out of Time (overdubs), multiple sessions, Peter Buck neighbor" },
+            { id: "Indigo Girls", group: "core", size: 18, description: "Strange Fire (1987), self-titled debut, multiple albums" },
+            { id: "Widespread Panic", group: "core", size: 18, description: "Space Wrangler, Ain't Life Grand, Dirty Side Down (Grammy nom 2011)" },
+            { id: "Cowboy Junkies", group: "core", size: 17, description: "Lay It Down, produced by John Keane" },
+            { id: "10,000 Maniacs", group: "core", size: 17, description: "Love Among the Ruins (1997), produced with Fred Maher" },
+            
+            // Athens scene
+            { id: "Vic Chesnutt", group: "athens", size: 15, description: "Is The Actor Happy, multiple albums, Athens fixture" },
+            { id: "Drivin N Cryin", group: "athens", size: 12, description: "Athens rock band, multiple sessions" },
+            { id: "Dreams So Real", group: "athens", size: 10, description: "Early Athens band demos" },
+            { id: "Love Tractor", group: "athens", size: 10, description: "Athens instrumental rock band" },
+            { id: "Guadalcanal Diary", group: "athens", size: 10, description: "Early Athens alternative band" },
+            
+            // Peter Buck collaborations
+            { id: "Peter Buck", group: "buck", size: 16, description: "R.E.M. guitarist, Keane's neighbor, brought many artists to studio" },
+            { id: "Uncle Tupelo", group: "buck", size: 16, description: "March 16-20, 1992 - produced by Buck, engineered by Keane" },
+            { id: "Warren Zevon", group: "buck", size: 13, description: "Sessions brought by Peter Buck" },
+            { id: "Robyn Hitchcock", group: "buck", size: 13, description: "Multiple sessions via Peter Buck" },
+            { id: "Billy Bragg", group: "buck", size: 12, description: "Collaboration sessions via Peter Buck" },
+            { id: "The Troggs", group: "buck", size: 11, description: "Sessions via Peter Buck" },
+            
+            // Alt-Country/Americana
+            { id: "The Bottle Rockets", group: "altcountry", size: 12, description: "Alt-country sessions" },
+            { id: "BR5-49", group: "altcountry", size: 11, description: "Alt-country/rockabilly" },
+            { id: "Kevn Kinney", group: "altcountry", size: 11, description: "Drivin N Cryin frontman solo work" },
+            { id: "Bloodkin", group: "altcountry", size: 11, description: "Southern rock/alt-country" },
+            
+            // Folk/Singer-Songwriter
+            { id: "Nanci Griffith", group: "folk", size: 13, description: "Multiple sessions, folk artist" },
+            { id: "Michelle Malone", group: "folk", size: 12, description: "Part of Indigo Girls circle, acoustic artist" },
+            { id: "Concrete Blonde", group: "folk", size: 12, description: "Alternative rock with folk elements" },
+            { id: "Grant McLennan", group: "folk", size: 12, description: "The Go-Betweens, Intermission album" },
+            { id: "Robert Earl Keen", group: "folk", size: 11, description: "Texas singer-songwriter" },
+            { id: "Jack Logan", group: "folk", size: 10, description: "Georgia singer-songwriter" },
+            { id: "Taj Mahal", group: "folk", size: 12, description: "Blues/world music sessions" },
+            { id: "Randall Bramblett", group: "folk", size: 11, description: "Longtime collaborator, acoustic piano album" }
+        ];
+
+        const links = [
+            // Core connections
+            { source: "John Keane", target: "R.E.M.", relationship: "Out of Time overdubs, multiple sessions", strength: 5 },
+            { source: "John Keane", target: "Indigo Girls", relationship: "Strange Fire (1987), self-titled debut", strength: 5 },
+            { source: "John Keane", target: "Widespread Panic", relationship: "Space Wrangler, Grammy nom for Dirty Side Down", strength: 5 },
+            { source: "John Keane", target: "Cowboy Junkies", relationship: "Lay It Down album", strength: 4 },
+            { source: "John Keane", target: "10,000 Maniacs", relationship: "Love Among the Ruins (1997)", strength: 4 },
+            
+            // Peter Buck network
+            { source: "John Keane", target: "Peter Buck", relationship: "Neighbor, brought many artists to studio", strength: 5 },
+            { source: "Peter Buck", target: "R.E.M.", relationship: "Guitarist", strength: 5 },
+            { source: "Peter Buck", target: "Uncle Tupelo", relationship: "Produced March 16-20, 1992", strength: 5 },
+            { source: "John Keane", target: "Uncle Tupelo", relationship: "Engineered March 16-20, played pedal steel", strength: 5 },
+            { source: "Peter Buck", target: "Warren Zevon", relationship: "Brought to Keane Studios", strength: 4 },
+            { source: "Peter Buck", target: "Robyn Hitchcock", relationship: "Brought to Keane Studios", strength: 4 },
+            { source: "Peter Buck", target: "Billy Bragg", relationship: "Brought to Keane Studios", strength: 4 },
+            { source: "Peter Buck", target: "The Troggs", relationship: "Brought to Keane Studios", strength: 3 },
+            { source: "John Keane", target: "Warren Zevon", relationship: "Sessions via Peter Buck", strength: 3 },
+            { source: "John Keane", target: "Robyn Hitchcock", relationship: "Sessions via Peter Buck", strength: 3 },
+            { source: "John Keane", target: "Billy Bragg", relationship: "Sessions via Peter Buck", strength: 3 },
+            { source: "John Keane", target: "The Troggs", relationship: "Sessions via Peter Buck", strength: 2 },
+            
+            // Athens scene connections
+            { source: "John Keane", target: "Vic Chesnutt", relationship: "Is The Actor Happy, multiple albums", strength: 5 },
+            { source: "John Keane", target: "Drivin N Cryin", relationship: "Multiple Athens sessions", strength: 4 },
+            { source: "John Keane", target: "Dreams So Real", relationship: "Early demos", strength: 3 },
+            { source: "John Keane", target: "Love Tractor", relationship: "Early demos", strength: 3 },
+            { source: "John Keane", target: "Guadalcanal Diary", relationship: "Early demos", strength: 3 },
+            { source: "Vic Chesnutt", target: "Widespread Panic", relationship: "Athens scene, collaborations", strength: 3 },
+            { source: "R.E.M.", target: "Drivin N Cryin", relationship: "Athens scene", strength: 2 },
+            
+            // Alt-country connections
+            { source: "John Keane", target: "The Bottle Rockets", relationship: "Alt-country sessions", strength: 3 },
+            { source: "John Keane", target: "BR5-49", relationship: "Alt-country sessions", strength: 3 },
+            { source: "John Keane", target: "Kevn Kinney", relationship: "Solo work, Drivin N Cryin", strength: 3 },
+            { source: "John Keane", target: "Bloodkin", relationship: "Multiple sessions", strength: 3 },
+            { source: "Uncle Tupelo", target: "The Bottle Rockets", relationship: "Alt-country scene", strength: 3 },
+            { source: "Cowboy Junkies", target: "Uncle Tupelo", relationship: "Alt-country contemporaries", strength: 2 },
+            
+            // Folk/singer-songwriter connections
+            { source: "John Keane", target: "Nanci Griffith", relationship: "Multiple sessions via Peter Buck", strength: 4 },
+            { source: "John Keane", target: "Michelle Malone", relationship: "Part of Indigo Girls circle", strength: 3 },
+            { source: "John Keane", target: "Concrete Blonde", relationship: "Alternative sessions", strength: 3 },
+            { source: "John Keane", target: "Grant McLennan", relationship: "Intermission album (The Go-Betweens)", strength: 3 },
+            { source: "John Keane", target: "Robert Earl Keen", relationship: "Texas songwriter sessions", strength: 3 },
+            { source: "John Keane", target: "Jack Logan", relationship: "Georgia singer-songwriter", strength: 3 },
+            { source: "John Keane", target: "Taj Mahal", relationship: "Blues/world sessions", strength: 3 },
+            { source: "John Keane", target: "Randall Bramblett", relationship: "Longtime collaborator, acoustic album", strength: 4 },
+            { source: "Indigo Girls", target: "Michelle Malone", relationship: "Close friends, musical circle", strength: 4 },
+            { source: "Peter Buck", target: "Nanci Griffith", relationship: "Brought to studio", strength: 3 }
+        ];
+
+        // Color scheme
+        const colorScale = {
+            nexus: "#f39c12",
+            core: "#e74c3c",
+            athens: "#3498db",
+            buck: "#2ecc71",
+            altcountry: "#9b59b6",
+            folk: "#1abc9c"
+        };
+
+        // Create force simulation
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(d => 150 - (d.strength * 10)))
+            .force("charge", d3.forceManyBody().strength(-400))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(d => d.size + 10));
+
+        // Create zoom behavior
+        const zoom = d3.zoom()
+            .scaleExtent([0.5, 3])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        const g = svg.append("g");
+
+        // Draw links
+        const link = g.append("g")
+            .selectAll("line")
+            .data(links)
+            .enter()
+            .append("line")
+            .attr("class", "link")
+            .attr("stroke", "#95a5a6")
+            .attr("stroke-width", d => d.strength * 0.8)
+            .on("mouseover", function(event, d) {
+                d3.select(this).attr("stroke", "#f39c12");
+                tooltip
+                    .style("opacity", 1)
+                    .html(`<strong>${d.source.id} ↔ ${d.target.id}</strong><br>${d.relationship}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function() {
+                d3.select(this).attr("stroke", "#95a5a6");
+                tooltip.style("opacity", 0);
+            });
+
+        // Draw nodes
+        const node = g.append("g")
+            .selectAll("circle")
+            .data(nodes)
+            .enter()
+            .append("circle")
+            .attr("class", "node")
+            .attr("r", d => d.size)
+            .attr("fill", d => colorScale[d.group])
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2)
+            .on("mouseover", function(event, d) {
+                d3.select(this)
+                    .attr("stroke", "#f39c12")
+                    .attr("stroke-width", 4);
+                tooltip
+                    .style("opacity", 1)
+                    .html(`<strong>${d.id}</strong><br>${d.description}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function() {
+                d3.select(this)
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 2);
+                tooltip.style("opacity", 0);
+            })
+            .call(d3.drag()
+                .on("start", dragStarted)
+                .on("drag", dragged)
+                .on("end", dragEnded));
+
+        // Add labels
+        const labels = g.append("g")
+            .selectAll("text")
+            .data(nodes)
+            .enter()
+            .append("text")
+            .attr("class", "node-text")
+            .attr("dy", d => d.size + 15)
+            .text(d => d.id);
+
+        // Update positions on each tick
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+
+            labels
+                .attr("x", d => d.x)
+                .attr("y", d => d.y);
+        });
+
+        // Drag functions
+        function dragStarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragEnded(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    </script>
+</body>
+</html>
